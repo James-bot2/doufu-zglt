@@ -1,0 +1,116 @@
+name: 中国联通仪表盘
+description: "中国联通话费、语音、流量仪表盘｜清透磨砂玻璃｜专属/通用/其它三分类显示（doufu 改版）"
+author: iBL3ND
+icon: https://iili.io/nEuB6Jt.png
+
+compat_arguments:
+  cuCapture: 'true'
+  cuCaptureNotice: 'true'
+  cuPlanNotice: 'true'
+  cuGeneralFlow: 'true'
+  cuDirectionalFlow: 'true'
+  cuOtherFlow: 'true'
+  cuKeepaliveInterval: '20'
+
+compat_arguments_schema:
+  cuCapture:
+    name: 中国联通数据抓取
+    description: 直接打开中国联通 App 查询一次即可自动捕获（抓到数据后可关闭）
+    default_value: 'true'
+    options:
+      - 'true'
+      - 'false'
+  cuCaptureNotice:
+    name: 中国联通数据抓取成功通知
+    description: 捕获到 App 套餐请求时发送通知
+    default_value: 'true'
+    options:
+      - 'true'
+      - 'false'
+  cuPlanNotice:
+    name: 套餐查询成功通知
+    description: 接口成功返回套餐数据后发送话费、流量和语音明细通知
+    default_value: 'true'
+    options:
+      - 'true'
+      - 'false'
+  cuGeneralFlow:
+    name: 显示通用流量
+    description: 小组件流量统计包含通用流量（关闭则只统计定向/其它流量）
+    default_value: 'true'
+    options:
+      - 'true'
+      - 'false'
+  cuDirectionalFlow:
+    name: 显示专属流量
+    description: 小组件流量统计包含专属流量（关闭则只统计通用/其它流量）
+    default_value: 'true'
+    options:
+      - 'true'
+      - 'false'
+  cuOtherFlow:
+    name: 显示其它流量
+    description: 小组件流量统计包含其它流量（日租宝、套餐外等；关闭则只统计通用/专属流量）
+    default_value: 'true'
+    options:
+      - 'true'
+      - 'false'
+  cuKeepaliveInterval:
+    name: 定时保活间隔
+    description: 只输入数字，单位固定为分钟；例如 20 表示每 20 分钟保活一次。最小 15，最大 1440（24 小时）
+    default_value: '20'
+
+dns: {}
+
+scriptings:
+  - generic:
+      name: china-unicom
+      script_url: https://raw.githubusercontent.com/James-bot2/doufu-zglt/main/JS/zglt_ui.js
+      update_interval: 60
+      timeout: 20
+      env:
+        cuCapture: '{{{cuCapture}}}'
+        cuCaptureNotice: '{{{cuCaptureNotice}}}'
+        cuPlanNotice: '{{{cuPlanNotice}}}'
+        CU_SHOW_GENERAL_FLOW: '{{{cuGeneralFlow}}}'
+        CU_SHOW_DIRECTIONAL_FLOW: '{{{cuDirectionalFlow}}}'
+        CU_SHOW_OTHER_FLOW: '{{{cuOtherFlow}}}'
+
+  - generic:
+      name: china-unicom-keepalive
+      script_url: https://raw.githubusercontent.com/James-bot2/doufu-zglt/main/JS/zglt_ui.js
+      update_interval: 60
+      timeout: 20
+      env:
+        CU_KEEPALIVE: 'true'
+        CU_KEEPALIVE_FORCE: 'true'
+        cuKeepaliveInterval: '{{{cuKeepaliveInterval}}}'
+
+  - schedule:
+      name: china-unicom-keepalive-schedule
+      cron: '* * * * *'
+      script_url: https://raw.githubusercontent.com/James-bot2/doufu-zglt/main/JS/zglt_ui.js
+      update_interval: 60
+      timeout: 15
+      env:
+        CU_KEEPALIVE: 'true'
+        cuKeepaliveInterval: '{{{cuKeepaliveInterval}}}'
+
+  - http_request:
+      name: 中国联通 App 自动捕获
+      match: '^https://m\.clien[{{{cuCapture}}}]\.10010\.com/'
+      script_url: https://raw.githubusercontent.com/James-bot2/doufu-zglt/main/JS/zglt_ui.js
+      timeout: 10
+      env:
+        cuCapture: '{{{cuCapture}}}'
+        cuCaptureNotice: '{{{cuCaptureNotice}}}'
+        cuPlanNotice: '{{{cuPlanNotice}}}'
+
+mitm:
+  hostnames:
+    includes:
+      - m.client.10010.com
+
+widgets:
+  - name: china-unicom
+    script_name: china-unicom
