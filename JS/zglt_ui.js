@@ -684,902 +684,301 @@ async function handleKeepAlive(ctx) {
 }
 
 /* =========================================================
- * 清透磨砂玻璃 UI 组件（1:1 复刻中国广电测试版）
+ * 简洁白卡 UI（面板样式参考 iBL3ND Unicom_Widget，数据抓取与专属/通用/其它三分类逻辑为 doufu 改版）
  * ========================================================= */
 
-function fontSize(size) {
-  if (typeof size === 'number') {
-    if (size <= 8) return 9;
-    if (size <= 10) return 10;
-    if (size <= 13) return 12;
-    if (size <= 19) return 16;
-    return 24;
-  }
+const COLORS = {
+  bg: { light: '#FFFFFF', dark: '#2C2C2E' },
+  border: { light: '#E5E5EA', dark: '#3A3A3C' },
+  title: { light: '#666666', dark: '#8E8E93' },
+  value: { light: '#1C1C1E', dark: '#FFFFFF' },
+  time: { light: '#999999', dark: '#666666' },
+  error: { light: '#FF3B30', dark: '#FF453A' },
+  capsuleBg: { light: '#FFFFFF15', dark: '#FFFFFF10' },
+  accent: { light: '#E60012', dark: '#FF375F' },
+};
 
-  const named = {
-    caption2: 9,
-    caption1: 10,
-    footnote: 12,
-    body: 16,
-    title3: 20,
-    title2: 22,
-    title: 24,
-  };
-  return named[size] || 12;
-}
-
-function t(text, size, weight, color, extra) {
-  return Object.assign({
-    type: 'text',
-    text: String(text),
-    font: { size: fontSize(size), weight: weight || 'regular' },
-    textColor: color || C.txt,
-    maxLines: 1,
-    minScale: 0.6,
-  }, extra || {});
-}
-
-function glass(children, extra) {
-  return Object.assign({
-    type: 'stack',
-    direction: 'column',
-    gap: 6,
-    padding: [8, 10],
-    borderRadius: 16,
-    backgroundColor: { light: '#00000000', dark: '#00000000' },
-    borderWidth: 0,
-    borderColor: { light: '#00000000', dark: '#00000000' },
-    shadowRadius: 0,
-    children,
-  }, extra || {}, {
-    backgroundColor: { light: '#00000000', dark: '#00000000' },
-    borderWidth: 0,
-    borderColor: { light: '#00000000', dark: '#00000000' },
-    shadowRadius: 0,
-  });
-}
-
-function gaugeSvg(pct, color, w) {
-  const stroke = 11;
-  const r = (w - stroke) / 2;
-  const cx = w / 2;
-  const cy = w / 2;
-  const h = w / 2 + stroke / 2;
-  const p = Math.max(0, Math.min(1, Number(pct) || 0));
-
-  const pt = a => [
-    (cx - r * Math.cos(a)).toFixed(2),
-    (cy - r * Math.sin(a)).toFixed(2),
-  ];
-
-  const [x0, y0] = pt(0);
-  const [x1, y1] = pt(Math.PI);
-  const [xp, yp] = pt(Math.PI * p);
-
-  let body =
-    `<path d='M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}' fill='none' stroke='${color}' stroke-opacity='0.18' stroke-width='${stroke}' stroke-linecap='round'/>`;
-
-  if (p > 0.005) {
-    body +=
-      `<path d='M ${x0} ${y0} A ${r} ${r} 0 0 1 ${xp} ${yp}' fill='none' stroke='${color}' stroke-width='${stroke}' stroke-linecap='round'/>`;
-  }
-
-  return 'data:image/svg+xml,' +
-    encodeURIComponent(
-      `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} ${h}'>${body}</svg>`
-    );
-}
-
-function historyDeltaText(history) {
-  const vals = (history || []).map(x => Number(x.flowKB)).filter(Number.isFinite);
-  if (vals.length < 2) return '采集中';
-  const delta = vals[vals.length - 1] - vals[vals.length - 2];
-  if (Math.abs(delta) < 1) return '余量基本稳定';
-  const f = formatFlow(Math.abs(delta));
-  return (delta < 0 ? '较上次减少 ' : '较上次增加 ') + f.number + ' ' + f.unit;
-}
-
-function flowStatus(pct) {
-  if (pct == null || !Number.isFinite(Number(pct))) {
-    return { color: C.flow, label: '套餐用量' };
-  }
-  const p = Number(pct);
-  if (p >= 0.9) return { color: '#C4475B', label: '用量偏高' };
-  if (p >= 0.7) return { color: C.fee, label: '注意余量' };
-  return { color: C.voice, label: '用量正常' };
-}
-
-function trendStrip(ds) {
-  const today = todayFlowUsage(ds.history);
-  const used = today.value == null ? null : formatFlow(today.value);
-  return glass([
-    {
-      type: 'stack',
-      direction: 'row',
-      alignItems: 'center',
-      gap: 6,
-      children: [
-        {
-          type: 'image',
-          src: historySvg(today.history, C.flow, 100, 30),
-          width: 72,
-          height: 22,
-        },
-        {
-          type: 'stack',
-          direction: 'column',
-          alignItems: 'start',
-          gap: 1,
-          flex: 1,
-          children: [
-            t('今日流量使用', 9, 'semibold', C.txt),
-            t(today.label, 8, 'medium', C.sub, { minScale: 0.65 }),
-          ],
-        },
-        t(used ? used.number + ' ' + used.unit : '采集中', 9, 'bold', C.flow, { minScale: 0.7 }),
-      ],
-    },
-  ], {
-    height: 42,
-    padding: [5, 8],
-    borderRadius: 13,
-    gap: 0,
-    backgroundColor: transparentMode ? { light: '#00000000', dark: '#00000000' } : { light: '#F8FAFCD9', dark: '#172638D9' },
-    borderColor: transparentMode ? { light: '#00000000', dark: '#00000000' } : { light: '#FFFFFFF2', dark: '#D7E7F0B0' },
-  });
-}
-
-function historySvg(history, color, w, h) {
-  const vals = (history || []).map(x => Number(x.flowKB)).filter(Number.isFinite).slice(-12);
-  const baseline = h - 2;
-  const empty = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} ${h}'><path d='M 2 ${baseline} H ${w - 2}' stroke='${color}' stroke-opacity='.22' stroke-width='1.5' stroke-linecap='round' stroke-dasharray='3 4'/></svg>`;
-  if (!vals.length) return 'data:image/svg+xml,' + encodeURIComponent(empty);
-
-  const max = Math.max(1, ...vals);
-  const padX = Math.min(3, w * 0.025);
-  const gap = Math.max(2, Math.min(5, w * 0.035));
-  const count = vals.length;
-  const barW = Math.max(2, (w - padX * 2 - gap * (count - 1)) / count);
-  const usableH = h - 5;
-  const bars = vals.map((v, i) => {
-    const bh = Math.max(2, (Math.max(0, v) / max) * usableH);
-    const x = padX + i * (barW + gap);
-    const y = baseline - bh;
-    const opacity = i === count - 1 ? 1 : 0.48 + 0.42 * ((i + 1) / count);
-    return `<rect x='${x.toFixed(1)}' y='${y.toFixed(1)}' width='${barW.toFixed(1)}' height='${bh.toFixed(1)}' rx='${Math.min(2, barW / 2).toFixed(1)}' fill='${color}' fill-opacity='${opacity.toFixed(2)}'/>`;
-  }).join('');
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} ${h}'><path d='M 1 ${baseline} H ${w - 1}' stroke='${color}' stroke-opacity='.12' stroke-width='1'/>${bars}</svg>`;
-  return 'data:image/svg+xml,' + encodeURIComponent(svg);
-}
-
-/* 专属 / 通用 / 其它 流量三分类展示条（doufu 改版新增） */
-function flowBreakdownStrip(ds) {
-  const bd = ds && ds.flowBreakdown;
-  if (!bd) return null;
-  const cats = [
-    { key: 'directional', label: '专属流量', color: C.violet },
-    { key: 'general', label: '通用流量', color: C.flow },
-    { key: 'other', label: '其它流量', color: C.green },
-  ];
-  const cols = cats.map(c => {
-    const v = bd[c.key] || {};
-    const f = formatFlow(v.remain);
-    return glass([
-      t(c.label, 8, 'medium', C.sub),
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'end',
-        gap: 2,
-        children: [
-          t(f.number, 15, 'bold', C.txt, { minScale: 0.5 }),
-          t(f.unit, 8, 'semibold', C.sub),
-        ],
-      },
-    ], { width: 0, flex: 1, padding: [6, 8], gap: 2, borderRadius: 14 });
-  });
+function headerRow(title, ds) {
+  const updateTime = fmtTime(ds && ds.updatedAt);
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
-    gap: 5,
-    children: cols,
-  };
-}
-
-function heroFlowCard(ds, cardHeight, cardFlex, isMedium) {
-  const remain = ds.flow.number + ' ' + ds.flow.unit;
-  const total = ds.plan && ds.plan.total != null ? formatFlow(ds.plan.total) : null;
-  const used = ds.plan && ds.plan.used != null ? formatFlow(ds.plan.used) : null;
-  const compactFlowDetail = !cardHeight
-    ? '总量 ' + (total ? total.number + ' ' + total.unit : '--') + ' · 已用 ' + (used ? used.number + ' ' + used.unit : '--')
-    : '';
-  const p = ds.plan && ds.plan.percent != null ? ds.plan.percent : null;
-  const flowStyle = flowStatus(p);
-  const flowContent = isMedium
-    ? {
+    children: [
+      {
         type: 'stack',
         direction: 'row',
         alignItems: 'center',
         gap: 6,
         children: [
-          {
-            type: 'stack',
-            direction: 'column',
-            alignItems: 'start',
-            gap: 2,
-            flex: 1,
-            children: [
-              t(remain, cardHeight ? 22 : 19, 'bold', C.txt, { minScale: 0.55 }),
-              t(compactFlowDetail || '当前剩余', 8, 'medium', C.sub, { minScale: 0.45 }),
-            ],
-          },
-          {
-            type: 'stack',
-            direction: 'column',
-            alignItems: 'center',
-            gap: 0,
-            children: [
-              {
-                type: 'image',
-                src: gaugeSvg(p != null ? p : 0, flowStyle.color, 68),
-                width: 44,
-                height: 24,
-              },
-              t(p != null ? Math.round(p * 100) + '% 已用' : '—', 8, 'bold', flowStyle.color),
-            ],
-          },
+          { type: 'image', src: 'sf-symbol:simcard.fill', color: COLORS.accent, width: 17, height: 17 },
+          { type: 'text', text: title, font: { size: 'headline', weight: 'semibold' }, textColor: COLORS.value, maxLines: 1, minScale: 0.8 },
         ],
-      }
-    : {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        gap: 12,
-        children: [
-          {
-            type: 'stack',
-            direction: 'column',
-            alignItems: 'center',
-            gap: -2,
-            children: [
-              {
-                type: 'image',
-                src: gaugeSvg(p != null ? p : 0, flowStyle.color, 86),
-                width: 64,
-                height: 34,
-              },
-              t(p != null ? Math.round(p * 100) + '% 已用' : '—', 10, 'bold', flowStyle.color),
-            ],
-          },
-          {
-            type: 'stack',
-            direction: 'column',
-            alignItems: 'start',
-            gap: 1,
-            flex: 1,
-            children: [
-              t(remain, cardHeight ? 23 : 20, 'bold', C.txt, { minScale: 0.55 }),
-              t('当前剩余', 9, 'medium', C.sub),
-              ...(!cardHeight ? [t(compactFlowDetail, 8, 'medium', C.sub, { minScale: 0.45 })] : []),
-            ],
-          },
-        ],
-      };
-  return glass([
-    {
-      type: 'stack',
-      direction: 'row',
-      alignItems: 'center',
-      gap: 6,
-      children: [
-        {
-          type: 'image',
-          src: 'sf-symbol:chart.pie.fill',
-          width: 13,
-          height: 13,
-          color: C.flow,
-        },
-        t('流量主卡', 10, 'semibold', C.txt),
-        { type: 'spacer' },
-        t(p != null ? Math.round((1 - p) * 100) + '% 剩余' : '实时套餐', 9, 'semibold', flowStyle.color),
-      ],
-    },
-    flowContent,
-  ], {
-    width: 0,
-    flex: cardFlex || 1,
-    ...(cardHeight ? { height: cardHeight, maxWidth: 360 } : {}),
-    padding: [8, 10],
-    borderRadius: 18,
-    gap: 4,
-    backgroundColor: transparentMode ? { light: '#00000000', dark: '#00000000' } : { light: '#F8FAFCD9', dark: '#172638D9' },
-    borderColor: transparentMode ? { light: '#00000000', dark: '#00000000' } : { light: '#FFFFFFF2', dark: '#D7E7F0B0' },
-    shadowColor: { light: '#52677A18', dark: '#00000028' },
-    shadowRadius: 0,
-    shadowOffset: { x: 0, y: 0 },
-  });
-}
-
-function header(title, ds, fromCache, mediumInset) {
-  const dur = ds.captureDuration ? ' · 凭据保持 ' + ds.captureDuration : '';
-  return {
-    type: 'stack',
-    direction: 'row',
-    alignItems: 'center',
-    padding: mediumInset ? [4, 6] : 0,
-    gap: 5,
-    children: [
-      {
-        type: 'image',
-        src: 'sf-symbol:antenna.radiowaves.left.and.right',
-        width: 13,
-        height: 13,
-        color: C.flow,
       },
-      t(title, 'footnote', 'semibold', C.txt),
       { type: 'spacer' },
-      t(`${fromCache ? '缓存数据' : '更新'} ${fmtTime(ds.updatedAt)}${dur}`, 9, 'medium', C.sub, {
-        minScale: 0.8,
-      }),
-    ],
-  };
-}
-
-function buildSmall(title, ds, fromCache) {
-  const dur = ds.captureDuration ? ' · ' + ds.captureDuration : '';
-  const p = ds.plan && ds.plan.percent != null ? ds.plan.percent : null;
-  const flowStyle = flowStatus(p);
-  const used = ds.plan && ds.plan.used != null
-    ? formatFlow(ds.plan.used).number + ' ' + formatFlow(ds.plan.used).unit
-    : '--';
-  const total = ds.plan && ds.plan.total != null
-    ? formatFlow(ds.plan.total).number + ' ' + formatFlow(ds.plan.total).unit
-    : '--';
-
-  return {
-    type: 'widget',
-    padding: [13, 13],
-    gap: 6,
-    backgroundColor: '#00000000',
-    refreshAfter: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-    children: [
       {
         type: 'stack',
         direction: 'row',
         alignItems: 'center',
         gap: 5,
         children: [
-          {
-            type: 'image',
-            src: 'sf-symbol:antenna.radiowaves.left.and.right',
-            width: 12,
-            height: 12,
-            color: C.flow,
-          },
-          t(title, 12, 'semibold', C.txt),
-          { type: 'spacer' },
-          t(`${fromCache ? '缓存 · ' : ''}${fmtTime(ds.updatedAt)}${dur}`, 8, 'medium', C.sub, { minScale: 0.55 }),
+          { type: 'image', src: 'sf-symbol:arrow.clockwise', color: COLORS.time, width: 12, height: 12 },
+          { type: 'text', text: updateTime, font: { size: 'caption2' }, textColor: COLORS.time, maxLines: 1 },
         ],
       },
+    ],
+  };
+}
 
+function makeCapsule(title, value, unit) {
+  return {
+    type: 'stack',
+    direction: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    padding: [7, 8, 7, 8],
+    backgroundColor: COLORS.capsuleBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    children: [
+      { type: 'text', text: title, font: { size: 'caption2', weight: 'medium' }, textColor: COLORS.title, textAlign: 'center', maxLines: 1, minScale: 0.7 },
       {
         type: 'stack',
         direction: 'row',
         alignItems: 'center',
-        gap: 4,
+        justifyContent: 'center',
+        gap: 3,
+        children: [
+          { type: 'text', text: String(value), font: { size: 'title2', weight: 'semibold' }, textColor: COLORS.value, textAlign: 'center', maxLines: 1, minScale: 0.55 },
+          { type: 'text', text: unit, font: { size: 'caption2' }, textColor: COLORS.title, maxLines: 1, minScale: 0.7 },
+        ],
+      },
+    ],
+  };
+}
+
+/* 专属 / 通用 / 其它 三分类胶囊行（无明细数据时返回 null） */
+function breakdownRow(ds) {
+  const bd = ds && ds.flowBreakdown;
+  if (!bd) return null;
+  const defs = [
+    ['专属流量', 'directional'],
+    ['通用流量', 'general'],
+    ['其它流量', 'other'],
+  ];
+  const cols = defs.map(([label, key]) => {
+    const f = formatFlow(bd[key] ? bd[key].remain : null);
+    return makeCapsule(label, f.number, f.unit);
+  });
+  return { type: 'stack', direction: 'row', alignItems: 'center', gap: 8, children: cols };
+}
+
+function bottomDash() {
+  return {
+    type: 'stack',
+    direction: 'row',
+    alignItems: 'center',
+    children: [
+      { type: 'spacer' },
+      { type: 'stack', width: 42, height: 3, borderRadius: 2, backgroundColor: COLORS.border },
+      { type: 'spacer' },
+    ],
+  };
+}
+
+function buildMainWidget(title, ds) {
+  const bdRow = breakdownRow(ds);
+  const children = [
+    headerRow(title, ds),
+    {
+      type: 'stack',
+      direction: 'row',
+      alignItems: 'center',
+      gap: 8,
+      children: [
+        makeCapsule('剩余话费', ds.fee.number, ds.fee.unit),
+        makeCapsule('剩余语音', ds.voice.number, '分钟'),
+        makeCapsule('剩余流量', ds.flow.number, ds.flow.unit),
+      ],
+    },
+  ];
+  if (bdRow) children.push(bdRow);
+  children.push(bottomDash());
+  return {
+    type: 'widget',
+    padding: [10, 14, 10, 14],
+    gap: 10,
+    backgroundColor: COLORS.bg,
+    refreshAfter: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    children,
+  };
+}
+
+/* 小尺寸：三行横条（话费 / 流量 / 语音） */
+function smallRow(color, symbol, glyph, value, unit, label) {
+  const iconChild = symbol
+    ? { type: 'image', src: symbol, color: '#FFFFFF', width: 16, height: 16 }
+    : { type: 'text', text: glyph, font: { size: 'headline', weight: 'bold' }, textColor: '#FFFFFF' };
+  return {
+    type: 'stack',
+    direction: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    padding: [4, 8, 4, 8],
+    backgroundColor: { light: color + '40', dark: color + '33' },
+    borderRadius: 14,
+    children: [
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: { light: color, dark: color + '60' },
+        children: [iconChild],
+      },
+      {
+        type: 'stack',
+        direction: 'column',
         flex: 1,
         children: [
           {
             type: 'stack',
-            direction: 'column',
-            alignItems: 'start',
-            gap: 2,
-            flex: 1,
+            direction: 'row',
+            alignItems: 'center',
+            gap: 3,
             children: [
-              t('剩余流量', 9, 'medium', C.sub),
-              {
-                type: 'stack',
-                direction: 'row',
-                alignItems: 'end',
-                gap: 2,
-                children: [
-                  t(ds.flow.number, 23, 'bold', C.txt, { minScale: 0.35 }),
-                  t(ds.flow.unit, 9, 'semibold', C.sub, { minScale: 0.7 }),
-                ],
-              },
-              {
-                type: 'stack',
-                direction: 'column',
-                alignItems: 'start',
-                gap: 2,
-                children: [
-                  t(
-                    ds.plan && ds.plan.used != null
-                      ? '已用 ' + used
-                      : '已用量待确认',
-                    8,
-                    'semibold',
-                    flowStyle.color,
-                    { minScale: 0.65 }
-                  ),
-                  t(
-                    ds.plan && ds.plan.total != null
-                      ? '总量 ' + total
-                      : (ds.plan && ds.plan.remain != null
-                        ? '余量 ' + formatFlow(ds.plan.remain).number + ' ' + formatFlow(ds.plan.remain).unit
-                        : '总量待确认'),
-                    8,
-                    'medium',
-                    C.sub,
-                    { minScale: 0.45 }
-                  ),
-                ],
-              },
+              { type: 'text', text: String(value), font: { size: 'title3', weight: 'bold' }, textColor: color, maxLines: 1, minScale: 0.5 },
+              { type: 'text', text: String(unit), font: { size: 'caption1', weight: 'semibold' }, textColor: color, maxLines: 1 },
+              { type: 'spacer' },
             ],
           },
           {
             type: 'stack',
-            direction: 'column',
+            direction: 'row',
             alignItems: 'center',
-            gap: -2,
             children: [
-              {
-                type: 'image',
-                src: gaugeSvg(p, flowStyle.color, 78),
-                width: 44,
-                height: 27,
-              },
-              t(
-                p != null ? Math.round(p * 100) + '% 已用' : '套餐',
-                8,
-                'bold',
-                flowStyle.color
-              ),
-              t(
-                (() => {
-                  const today = todayFlowUsage(ds.history);
-                  return today.value != null
-                    ? '今日 ' + formatFlow(today.value).number + formatFlow(today.value).unit
-                    : '今日采集中';
-                })(),
-                8,
-                'medium',
-                C.sub,
-                { minScale: 0.6 }
-              ),
+              { type: 'text', text: String(label), font: { size: 'caption2', weight: 'medium' }, textColor: color + 'B3', maxLines: 1, minScale: 0.7 },
+              { type: 'spacer' },
             ],
           },
-        ],
-      },
-
-      ...(flowBreakdownStrip(ds) ? [flowBreakdownStrip(ds)] : []),
-      {
-        type: 'stack',
-        direction: 'row',
-        gap: 5,
-        children: [
-          glass([
-            { type: 'stack', direction: 'row', alignItems: 'center', gap: 3, children: [
-              { type: 'image', src: 'sf-symbol:phone.fill', width: 10, height: 10, color: C.voice },
-              t('剩余语音', 8, 'medium', C.sub),
-            ]},
-            { type: 'stack', direction: 'row', alignItems: 'end', gap: 2, children: [
-              t(ds.voice.number === '--' ? '暂无' : ds.voice.number, 18, 'bold', C.txt, { minScale: 0.4 }),
-              t(ds.voice.number === '--' ? '' : '分钟', 8, 'semibold', C.sub),
-            ]},
-          ], { width: 0, flex: 1, height: 48, padding: [7, 7], gap: 4, borderRadius: 15 }),
-          glass([
-            { type: 'stack', direction: 'row', alignItems: 'center', gap: 3, children: [
-              { type: 'image', src: 'sf-symbol:yensign.circle.fill', width: 10, height: 10, color: C.fee },
-              t('剩余话费', 8, 'medium', C.sub),
-            ]},
-            { type: 'stack', direction: 'row', alignItems: 'end', gap: 2, children: [
-              t('¥', 10, 'semibold', C.fee),
-              t(ds.fee.number, 18, 'bold', C.txt, { minScale: 0.4 }),
-            ]},
-          ], { width: 0, flex: 1, height: 48, padding: [7, 7], gap: 4, borderRadius: 15 }),
         ],
       },
     ],
   };
 }
 
-function buildMedium(title, ds, fromCache) {
-  const compactFee = glass([
-    {
-      type: 'stack',
-      direction: 'row',
-      alignItems: 'center',
-      gap: 4,
-      children: [
-        {
-          type: 'image',
-          src: 'sf-symbol:yensign.circle.fill',
-          width: 10,
-          height: 10,
-          color: C.fee,
-        },
-        t('话费', 9, 'medium', C.sub),
-        { type: 'spacer' },
-        t('¥' + ds.fee.number, 15, 'bold', C.txt, { minScale: 0.6 }),
-      ],
-    },
-  ], {
-    flex: 1,
-    padding: [6, 8],
-    gap: 1,
-    borderRadius: 14,
-    justifyContent: 'center',
-  });
-
-  const compactVoice = glass([
-    {
-      type: 'stack',
-      direction: 'row',
-      alignItems: 'center',
-      gap: 4,
-      children: [
-        {
-          type: 'image',
-          src: 'sf-symbol:phone.fill',
-          width: 10,
-          height: 10,
-          color: C.voice,
-        },
-        t('语音', 9, 'medium', C.sub),
-        { type: 'spacer' },
-        t(ds.voice.number, 15, 'bold', C.txt, { minScale: 0.6 }),
-        t('分', 8, 'semibold', C.sub),
-      ],
-    },
-  ], {
-    flex: 1,
-    padding: [6, 8],
-    gap: 1,
-    borderRadius: 14,
-  });
-
-  const row = {
-    type: 'stack',
-    direction: 'row',
-    alignItems: 'center',
-    gap: 5,
-    children: [
-      heroFlowCard(ds, null, null, true),
-      {
-        type: 'stack',
-        direction: 'column',
-        alignItems: 'center',
-        gap: 5,
-        width: 100,
-        children: [
-          compactFee,
-          compactVoice,
-        ],
-      },
-    ],
-  };
-
+function buildSmall(title, ds) {
   return {
     type: 'widget',
-    padding: [12, 14],
+    padding: [10, 10, 10, 10],
     gap: 6,
-    backgroundColor: { light: '#F4F7FB', dark: '#161B22' },
-    refreshAfter: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    backgroundColor: COLORS.bg,
+    refreshAfter: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     children: [
-      header(title, ds, fromCache, true),
-      row,
-      ...(flowBreakdownStrip(ds) ? [flowBreakdownStrip(ds)] : []),
-      trendStrip(ds),
+      smallRow('#E8651F', null, '¥', ds.fee.number, ds.fee.unit, '剩余话费'),
+      smallRow('#4DA6F0', 'sf-symbol:antenna.radiowaves.left.and.right', '', ds.flow.number, ds.flow.unit, '剩余流量'),
+      smallRow('#55C759', 'sf-symbol:phone.and.waveform.fill', '', ds.voice.number, '分钟', '剩余语音'),
     ],
   };
 }
 
-function todayFlowUsage(history) {
-  const now = new Date();
-  const todayKey = now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate();
-  const today = (history || [])
-    .filter(x => {
-      const ts = Number(x.ts);
-      if (!Number.isFinite(ts)) return false;
-      const d = new Date(ts);
-      return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() === todayKey;
-    })
-    .sort((a, b) => Number(a.ts) - Number(b.ts));
-
-  if (today.length < 2) {
-    return { value: null, history: today, label: '今日数据采集中' };
-  }
-
-  const first = Number(today[0].flowKB);
-  const last = Number(today[today.length - 1].flowKB);
-  if (!Number.isFinite(first) || !Number.isFinite(last)) {
-    return { value: null, history: today, label: '今日数据采集中' };
-  }
-
-  const value = Math.max(0, first - last);
-  return {
-    value,
-    history: today.map(x => ({
-      ts: x.ts,
-      flowKB: Math.max(0, first - Number(x.flowKB)),
-    })),
-    label: value < 1 ? '今日暂无明显消耗' : '按今日已记录余量变化估算',
-  };
-}
-
-function buildLarge(title, ds, fromCache) {
-  const plan = ds.plan || {};
-  const total = plan.total != null ? formatFlow(plan.total) : null;
-  const usedFlow = plan.used != null ? formatFlow(plan.used) : null;
-  const voiceUsed = plan.voiceUsed != null ? formatVoice(plan.voiceUsed) : null;
-  const voiceTotal = plan.voiceTotal != null ? formatVoice(plan.voiceTotal) : null;
-  const p = plan.percent != null ? Math.max(0, Math.min(1, Number(plan.percent))) : null;
-  const flowStyle = flowStatus(p);
-  const today = todayFlowUsage(ds.history);
-  const todayUsed = today.value == null ? null : formatFlow(today.value);
-
-  return {
-    type: 'widget',
-    padding: [16, 17],
-    gap: 9,
-    backgroundColor: '#00000000',
-    refreshAfter: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-    children: [
-      header(title, ds, fromCache),
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        gap: 12,
-        height: 112,
-        children: [
-          {
-            type: 'stack',
-            direction: 'column',
-            alignItems: 'start',
-            justifyContent: 'center',
-            gap: 7,
-            flex: 1.25,
-            children: [
-              {
-                type: 'stack',
-                direction: 'row',
-                alignItems: 'center',
-                gap: 5,
-                children: [
-                  { type: 'image', src: 'sf-symbol:chart.pie.fill', width: 13, height: 13, color: C.flow },
-                  t('剩余流量', 10, 'semibold', C.sub),
-                  { type: 'spacer' },
-                  t(p != null ? Math.round((1 - p) * 100) + '% 剩余' : '套餐流量', 9, 'semibold', flowStyle.color),
-                ],
-              },
-              {
-                type: 'stack',
-                direction: 'row',
-                alignItems: 'end',
-                gap: 3,
-                children: [
-                  t(ds.flow.number, 29, 'bold', C.txt, { minScale: 0.45 }),
-                  t(ds.flow.unit, 11, 'semibold', C.sub),
-                ],
-              },
-              {
-                type: 'stack',
-                direction: 'row',
-                gap: 4,
-                height: 5,
-                children: [
-                  {
-                    type: 'stack',
-                    flex: p == null ? 1 : Math.max(0.03, p),
-                    backgroundColor: flowStyle.color,
-                    borderRadius: 4,
-                    children: [],
-                  },
-                  {
-                    type: 'stack',
-                    flex: p == null ? 0.001 : Math.max(0.03, 1 - p),
-                    backgroundColor: { light: '#7890A52B', dark: '#FFFFFF2B' },
-                    borderRadius: 4,
-                    children: [],
-                  },
-                ],
-              },
-              t('总量 ' + (total ? total.number + ' ' + total.unit : '--') +
-                '  ·  已用 ' + (usedFlow ? usedFlow.number + ' ' + usedFlow.unit : '--'), 9, 'medium', C.sub, { minScale: 0.55 }),
-            ],
-          },
-          {
-            type: 'stack',
-            direction: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 0,
-            width: 90,
-            children: [
-              { type: 'image', src: gaugeSvg(p, flowStyle.color, 110), width: 76, height: 40 },
-              t(p != null ? Math.round(p * 100) + '% 已用' : '用量统计', 9, 'bold', flowStyle.color),
-            ],
-          },
-        ],
-      },
-      ...(flowBreakdownStrip(ds) ? [flowBreakdownStrip(ds)] : []),
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        gap: 10,
-        padding: [8, 0],
-        children: [
-          {
-            type: 'stack',
-            direction: 'column',
-            gap: 4,
-            flex: 1,
-            children: [
-              { type: 'stack', direction: 'row', alignItems: 'center', gap: 4, children: [
-                { type: 'image', src: 'sf-symbol:yensign.circle.fill', width: 12, height: 12, color: C.fee },
-                t('剩余话费', 10, 'medium', C.sub),
-              ]},
-              { type: 'stack', direction: 'row', alignItems: 'end', gap: 2, children: [
-                t('¥' + ds.fee.number, 21, 'bold', C.txt, { minScale: 0.5 }),
-                t('元', 9, 'medium', C.sub),
-              ]},
-            ],
-          },
-          {
-            type: 'stack',
-            direction: 'column',
-            gap: 4,
-            flex: 1,
-            children: [
-              { type: 'stack', direction: 'row', alignItems: 'center', gap: 4, children: [
-                { type: 'image', src: 'sf-symbol:phone.fill', width: 12, height: 12, color: C.voice },
-                t('剩余语音', 10, 'medium', C.sub),
-              ]},
-              { type: 'stack', direction: 'row', alignItems: 'end', gap: 2, children: [
-                t(ds.voice.number === '--' ? '暂无' : ds.voice.number, 21, 'bold', C.txt, { minScale: 0.5 }),
-                t(ds.voice.number === '--' ? '' : '分钟', 9, 'medium', C.sub),
-              ]},
-              t(voiceUsed != null && voiceTotal != null
-                ? '已用 ' + voiceUsed + ' / ' + voiceTotal + ' 分钟'
-                : '套餐分钟明细暂不可用', 8, 'medium', C.sub, { minScale: 0.55 }),
-            ],
-          },
-        ],
-      },
-      {
-        type: 'stack',
-        direction: 'column',
-        gap: 5,
-        padding: [7, 0, 0, 0],
-        children: [
-          {
-            type: 'stack',
-            direction: 'row',
-            alignItems: 'center',
-            gap: 4,
-            children: [
-              { type: 'image', src: 'sf-symbol:chart.bar.fill', width: 10, height: 10, color: C.flow },
-              t('今日流量使用', 10, 'semibold', C.txt),
-              { type: 'spacer' },
-              t(todayUsed ? todayUsed.number + ' ' + todayUsed.unit : '采集中', 10, 'bold', C.flow),
-            ],
-          },
-          {
-            type: 'image',
-            src: historySvg(today.history.map(x => ({ flowKB: x.flowKB })), C.flow, 270, 38),
-            width: 270,
-            height: 38,
-          },
-          t(today.label, 8, 'medium', C.sub),
-          {
-            type: 'stack',
-            direction: 'row',
-            alignItems: 'center',
-            gap: 4,
-            children: [
-              { type: 'image', src: 'sf-symbol:clock', width: 9, height: 9, color: C.sub },
-              t((fromCache ? '缓存数据 · ' : '最近更新 · ') + fmtTime(ds.updatedAt), 8, 'medium', C.sub),
-              { type: 'spacer' },
-              t(ds.captureDuration ? '凭据已保持 ' + ds.captureDuration : (fromCache ? '数据可能过期' : '定时保活中'), 8, 'medium', C.sub),
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function buildLock(title, ds, family) {
-  const dur = ds.captureDuration ? ' · 保持' + ds.captureDuration : '';
+function buildLockScreen(title, ds, family) {
+  const SUB = { light: '#FFFFFFB3', dark: '#FFFFFFB3' };
   if (family === 'accessoryInline') {
     return {
       type: 'widget',
       children: [
         {
           type: 'text',
-          text: `¥${ds.fee.number} · ${ds.flow.number}${ds.flow.unit} · ${ds.voice.number}分${dur}`,
+          text: `${title} ${ds.fee.number}${ds.fee.unit} · ${ds.flow.number}${ds.flow.unit}`,
+          font: { size: 'caption1', weight: 'medium' },
           maxLines: 1,
-          minScale: 0.6,
+          minScale: 0.5,
         },
       ],
     };
   }
-
   if (family === 'accessoryCircular') {
     return {
       type: 'widget',
-      padding: 7,
+      padding: 2,
       children: [
         { type: 'spacer' },
-        {
-          type: 'stack',
-          direction: 'column',
-          alignItems: 'center',
-          gap: 0,
-          children: [
-            {
-              type: 'image',
-              src: 'sf-symbol:wifi',
-              width: 11,
-              height: 11,
-              color: C.flow,
-            },
-            t(ds.flow.number, 14, 'bold', C.txt, { minScale: 0.5 }),
-            t(ds.flow.unit, 8, 'regular', C.sub),
-          ],
-        },
+        { type: 'text', text: `${ds.flow.number}`, font: { size: 'headline', weight: 'bold' }, textAlign: 'center', maxLines: 1, minScale: 0.5 },
+        { type: 'text', text: ds.flow.unit, font: { size: 'caption2' }, textColor: SUB, textAlign: 'center', maxLines: 1 },
         { type: 'spacer' },
       ],
     };
   }
-
+  const line = (label, value, unit) => ({
+    type: 'stack',
+    direction: 'row',
+    alignItems: 'center',
+    gap: 4,
+    children: [
+      { type: 'text', text: label, font: { size: 'caption2', weight: 'medium' }, textColor: SUB, maxLines: 1 },
+      { type: 'spacer' },
+      { type: 'text', text: String(value), font: { size: 'caption1', weight: 'bold' }, maxLines: 1, minScale: 0.6 },
+      { type: 'text', text: String(unit), font: { size: 'caption2' }, textColor: SUB, maxLines: 1 },
+    ],
+  });
   return {
     type: 'widget',
-    padding: [3, 5],
+    padding: 2,
     gap: 2,
     children: [
-      t(`话费 ¥${ds.fee.number}`, 'footnote', 'bold', C.fee),
-      t(`流量 ${ds.flow.number}${ds.flow.unit} · 语音 ${ds.voice.number}分${dur}`, 'caption2', 'semibold', C.txt, {
-        minScale: 0.6,
-      }),
+      line('话费', ds.fee.number, ds.fee.unit),
+      line('流量', ds.flow.number, ds.flow.unit),
+      line('语音', ds.voice.number, '分钟'),
     ],
   };
-}
-
-function liquidGlassWidget(widget) {
-  if (!widget || widget.type !== 'widget') return widget;
-  widget.backgroundColor = transparentMode
-    ? '#00000000'
-    : { light: '#F4F7FB', dark: '#161B22' };
-  delete widget.glassContentPadding;
-  return widget;
 }
 
 function buildError(title, message) {
   return {
     type: 'widget',
-    padding: 14,
-    gap: 6,
-    backgroundColor: transparentMode ? '#00000000' : { light: '#F4F7FB', dark: '#161B22' },
+    padding: 12,
+    backgroundColor: COLORS.bg,
     children: [
-      t(title, 'footnote', 'semibold'),
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        gap: 6,
+        children: [
+          { type: 'image', src: 'sf-symbol:exclamationmark.triangle.fill', color: COLORS.error, width: 15, height: 15 },
+          { type: 'text', text: title, font: { size: 'headline', weight: 'semibold' }, textColor: COLORS.value, maxLines: 1 },
+        ],
+      },
+      { type: 'spacer' },
+      { type: 'text', text: message, font: { size: 'caption1', weight: 'medium' }, textColor: COLORS.title, textAlign: 'center', maxLines: 3, minScale: 0.75 },
       { type: 'spacer' },
       {
-        type: 'image',
-        src: 'sf-symbol:exclamationmark.triangle.fill',
-        width: 22,
-        height: 22,
-        color: C.fee,
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        children: [
+          { type: 'spacer' },
+          {
+            type: 'stack',
+            padding: [5, 12, 5, 12],
+            backgroundColor: COLORS.capsuleBg,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            children: [
+              { type: 'text', text: '打开联通 App 查询一次', font: { size: 'caption2', weight: 'medium' }, textColor: COLORS.accent, maxLines: 1 },
+            ],
+          },
+          { type: 'spacer' },
+        ],
       },
-      t(message, 'caption1', 'medium', C.txt, {
-        maxLines: 4,
-        minScale: 0.7,
-      }),
-      { type: 'spacer' },
     ],
   };
 }
@@ -1587,36 +986,20 @@ function buildError(title, message) {
 async function handleWidget(ctx) {
   const title = '中国联通';
   const result = await loadData(ctx);
-
   if (!result.configured) {
-    return buildError(
-      title,
-      '请打开中国联通 App 查询一次，等待自动捕获数据'
-    );
+    return buildError(title, '请打开联通 App，进入首页并点击余额位置');
   }
-
   if (!result.data) {
-    return buildError(
-      title,
-      '查询失败，请重新打开中国联通 App 查询一次'
-    );
+    return buildError(title, '数据获取失败，请重新打开联通 App 查询一次');
   }
-
   const family = ctx.widgetFamily || 'systemSmall';
-
-  if (family === 'systemMedium') {
-    return liquidGlassWidget(buildMedium(title, result.data, result.fromCache));
+  if (family === 'systemMedium' || family === 'systemLarge' || family === 'systemExtraLarge') {
+    return buildMainWidget(title, result.data);
   }
-
-  if (family === 'systemLarge' || family === 'systemExtraLarge') {
-    return liquidGlassWidget(buildLarge(title, result.data, result.fromCache));
-  }
-
   if (family.startsWith('accessory')) {
-    return buildLock(title, result.data, family);
+    return buildLockScreen(title, result.data, family);
   }
-
-  return liquidGlassWidget(buildSmall(title, result.data, result.fromCache));
+  return buildSmall(title, result.data);
 }
 
 export default async function(ctx) {
