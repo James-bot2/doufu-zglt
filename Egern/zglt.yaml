@@ -10,6 +10,7 @@ compat_arguments:
   cuGeneralFlow: 'true'
   cuDirectionalFlow: 'true'
   cuOtherFlow: 'true'
+  cuBgImage: 'true'
   cuKeepaliveInterval: '20'
 
 compat_arguments_schema:
@@ -55,6 +56,13 @@ compat_arguments_schema:
     options:
       - 'true'
       - 'false'
+  cuBgImage:
+    name: 小组件背景图
+    description: 主/小尺寸小组件使用动漫背景图（关闭则恢复纯白卡片）
+    default_value: 'true'
+    options:
+      - 'true'
+      - 'false'
   cuKeepaliveInterval:
     name: 定时保活间隔
     description: 只输入数字，单位固定为分钟；例如 20 表示每 20 分钟保活一次。最小 15，最大 1440（24 小时）
@@ -75,6 +83,7 @@ scriptings:
         CU_SHOW_GENERAL_FLOW: '{{{cuGeneralFlow}}}'
         CU_SHOW_DIRECTIONAL_FLOW: '{{{cuDirectionalFlow}}}'
         CU_SHOW_OTHER_FLOW: '{{{cuOtherFlow}}}'
+        CU_BG_IMAGE: '{{{cuBgImage}}}'
 
   - generic:
       name: china-unicom-keepalive
